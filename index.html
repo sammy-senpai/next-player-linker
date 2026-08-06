@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="page-title">Next Player Stream</title>
+    <style>
+        :root {
+            --accent-gradient: linear-gradient(135deg, #FF3366 0%, #FF6B3B 50%, #FF8E53 100%);
+            --github-gradient: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            --play-gradient: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
+            --glass-bg: rgba(22, 25, 37, 0.88);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --glass-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            --text-main: #FFFFFF;
+            --text-sub: rgba(255, 255, 255, 0.75);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        html, body {
+            background-color: #0d0e15;
+            min-height: 100dvh;
+            width: 100%;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: var(--text-main);
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 24px 16px;
+            position: relative;
+        }
+
+        /* Dynamic Mesh & Banner Backdrop */
+        .backdrop-container {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .banner-backdrop {
+            position: absolute;
+            inset: 0;
+            background-size: cover;
+            background-position: center;
+            filter: blur(35px) brightness(0.45) saturate(1.3);
+            transform: scale(1.1);
+            transition: opacity 0.3s ease;
+        }
+
+        .mesh-gradient {
+            position: absolute;
+            inset: 0;
+            background: 
+                radial-gradient(circle at 10% 20%, rgba(255, 51, 102, 0.25) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(58, 134, 255, 0.2) 0%, transparent 45%);
+            mix-blend-mode: screen;
+        }
+
+        /* ----------------------------------
+           STREAM MODE (Compact Glass Card)
+        ----------------------------------- */
+        .card {
+            position: relative;
+            z-index: 2;
+            max-width: 620px;
+            width: 100%;
+            margin: auto;
+            padding: 28px;
+            border-radius: 28px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            animation: cardAppear 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes cardAppear {
+            from { opacity: 0; transform: scale(0.95) translateY(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .stream-view {
+            display: flex;
+            gap: 22px;
+            align-items: center;
+        }
+
+        .poster-box {
+            flex-shrink: 0;
+            width: 130px;
+            aspect-ratio: 2 / 3;
+            border-radius: 18px;
+            overflow: hidden;
+            box-shadow: 0 12px 25px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .poster-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .poster-box.hidden {
+            display: none;
+        }
+
+        .info-col {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .tag {
+            align-self: flex-start;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.68rem;
+            font-weight: 800;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            color: #FFF;
+        }
+
+        .media-title {
+            font-size: 1.4rem;
+            font-weight: 800;
+            line-height: 1.25;
+            letter-spacing: -0.3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .media-desc {
+            font-size: 0.82rem;
+            line-height: 1.45;
+            color: var(--text-sub);
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .media-desc:empty {
+            display: none;
+        }
+
+        .actions {
+            margin-top: 6px;
+        }
+
+        .btn-play {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 12px 28px;
+            border-radius: 50px;
+            background: var(--accent-gradient);
+            color: #FFF;
+            font-size: 0.9rem;
+            font-weight: 700;
+            text-decoration: none;
+            box-shadow: 0 8px 20px rgba(255, 51, 102, 0.4);
+            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .btn-play:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 12px 28px rgba(255, 51, 102, 0.55);
+        }
+
+        .play-icon {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+        }
+
+        /* ----------------------------------
+           LANDING MODE (Normal Clean Page)
+        ----------------------------------- */
+        .landing-view {
+            position: relative;
+            z-index: 2;
+            max-width: 760px;
+            width: 100%;
+            margin: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+            animation: cardAppear 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .hero-header {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .brand-badge {
+            align-self: flex-start;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #FF8E53;
+        }
+
+        .landing-title {
+            font-size: 2.2rem;
+            font-weight: 900;
+            letter-spacing: -0.8px;
+            line-height: 1.2;
+        }
+
+        .landing-subtitle {
+            font-size: 1.05rem;
+            color: var(--text-sub);
+            line-height: 1.6;
+        }
+
+        /* Feature Section */
+        .features-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .feature-item {
+            padding: 20px;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .feature-item h3 {
+            font-size: 1rem;
+            font-weight: 800;
+            color: #FFF;
+        }
+
+        .feature-item p {
+            font-size: 0.85rem;
+            color: var(--text-sub);
+            line-height: 1.5;
+        }
+
+        .cta-box {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .cta-title {
+            font-size: 0.8rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-sub);
+        }
+
+        .btn-group-horizontal {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn-landing {
+            padding: 13px 22px;
+            border-radius: 14px;
+            color: #FFF;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 0.88rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.25s ease;
+        }
+
+        .btn-generator {
+            background: var(--accent-gradient);
+            box-shadow: 0 6px 18px rgba(255, 51, 102, 0.35);
+        }
+
+        .btn-github {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+
+        .btn-playstore {
+            background: rgba(0, 198, 255, 0.15);
+            border: 1px solid rgba(0, 198, 255, 0.3);
+            color: #00c6ff;
+        }
+
+        .btn-landing:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.1);
+        }
+
+        .btn-landing svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+        }
+
+        /* Responsive Layout Adjustments */
+        @media (max-width: 600px) {
+            .landing-title {
+                font-size: 1.7rem;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .btn-group-horizontal {
+                flex-direction: column;
+            }
+
+            .btn-landing {
+                width: 100%;
+            }
+
+            .stream-view {
+                flex-direction: column;
+                text-align: center;
+                gap: 14px;
+            }
+
+            .poster-box {
+                width: 110px;
+            }
+
+            .tag {
+                align-self: center;
+            }
+
+            .media-title {
+                font-size: 1.2rem;
+                white-space: normal;
+            }
+
+            .btn-play {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="backdrop-container">
+        <div id="banner-bg" class="banner-backdrop"></div>
+        <div class="mesh-gradient"></div>
+    </div>
+
+    <!-- STREAM MODE: Displayed when valid stream params are passed -->
+    <main id="stream-card" class="card" style="display: none;">
+        <div class="stream-view">
+            <div id="poster-box" class="poster-box hidden">
+                <img id="poster-img" src="" alt="Poster" />
+            </div>
+
+            <div class="info-col">
+                <span id="status-tag" class="tag">Ready To Stream</span>
+                <h1 id="media-title" class="media-title">Streaming...</h1>
+                <p id="media-desc" class="media-desc"></p>
+
+                <div class="actions">
+                    <a id="launch-btn" class="btn-play" href="#">
+                        <svg class="play-icon" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z"/>
+                        </svg>
+                        <span id="btn-text">Play Video</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- LANDING MODE: Normal layout displayed when url or title is missing -->
+    <div id="landing-view" class="landing-view" style="display: none;">
+        <header class="hero-header">
+            <span class="brand-badge">Next Player Linker</span>
+            <h1 class="landing-title">Stream & Share Movies Directly in Next Player</h1>
+            <p class="landing-subtitle">
+                Easily share direct movie and show links with your friends and family. Instead of struggling with complex video players or browser controls, shared links open video streams directly in the native <strong>Next Player</strong> app for instant, smooth playback.
+            </p>
+        </header>
+
+        <section class="features-grid">
+            <div class="feature-item">
+                <h3>One-Tap Playback</h3>
+                <p>When friends open a generated link, it launches Next Player immediately on their Android device with video titles and artwork preloaded.</p>
+            </div>
+            <div class="feature-item">
+                <h3>Easier Sharing</h3>
+                <p>Create shareable links for any standard video stream (.m3u8, .mp4) so your family doesn't need to fiddle with complex URLs or settings.</p>
+            </div>
+        </section>
+
+        <section class="cta-box">
+            <span class="cta-title">Get Started</span>
+            <div class="btn-group-horizontal">
+                <a href="generator.html" class="btn-landing btn-generator">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>
+                    </svg>
+                    Generate Stream Link
+                </a>
+
+                <a href="https://github.com/anilbeesetti/nextplayer/releases" class="btn-landing btn-github" target="_blank">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+                    </svg>
+                    GitHub Release
+                </a>
+
+                <a href="https://play.google.com/store/apps/details?id=dev.anilbeesetti.nextplayer" class="btn-landing btn-playstore" target="_blank">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M3 20.5v-17c0-.83.67-1.5 1.5-1.5.34 0 .65.11.9.31l12.8 9.2a1.5 1.5 0 0 1 0 2.48l-12.8 9.2a1.5 1.5 0 0 1-.9.31c-.83 0-1.5-.67-1.5-1.5z"/>
+                    </svg>
+                    Google Play
+                </a>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+
+        const streamUrl = params.get('url');
+        const mediaTitle = params.get('title');
+        const posterUrl = params.get('poster');
+        const bannerUrl = params.get('banner');
+        const mediaDesc = params.get('desc') || "";
+
+        const streamCard = document.getElementById('stream-card');
+        const landingView = document.getElementById('landing-view');
+
+        // Check if both required params ('url' and 'title') are present
+        if (streamUrl && mediaTitle) {
+            landingView.style.display = 'none';
+            streamCard.style.display = 'block';
+
+            document.getElementById('page-title').textContent = `${mediaTitle} - Stream`;
+            document.getElementById('media-title').textContent = mediaTitle;
+            document.getElementById('media-desc').textContent = mediaDesc;
+
+            // Poster handling
+            const posterBox = document.getElementById('poster-box');
+            const posterImg = document.getElementById('poster-img');
+            if (posterUrl) {
+                posterImg.src = posterUrl;
+                posterImg.onload = () => posterBox.classList.remove('hidden');
+                posterImg.onerror = () => posterBox.classList.add('hidden');
+            } else {
+                posterBox.classList.add('hidden');
+            }
+
+            // Banner handling
+            const bannerBg = document.getElementById('banner-bg');
+            if (bannerUrl) {
+                const img = new Image();
+                img.src = bannerUrl;
+                img.onload = () => { bannerBg.style.backgroundImage = `url('${bannerUrl}')`; };
+                img.onerror = () => { bannerBg.style.backgroundImage = 'none'; };
+            } else {
+                bannerBg.style.backgroundImage = 'none';
+            }
+
+            // Intent generation
+            const fallbackBase = "https://sameerdeshmukh37.github.io/next-player-linker//install.html";
+            let fallbackParams = `?url=${encodeURIComponent(streamUrl)}&title=${encodeURIComponent(mediaTitle)}`;
+            if (posterUrl) fallbackParams += `&poster=${encodeURIComponent(posterUrl)}`;
+            if (bannerUrl) fallbackParams += `&banner=${encodeURIComponent(bannerUrl)}`;
+            
+            const fallbackUrl = `${fallbackBase}${fallbackParams}`;
+            const rawStreamPath = streamUrl.replace(/^https?:\/\//, '');
+            const scheme = streamUrl.startsWith('https') ? 'https' : 'http';
+
+            const intentUri = `intent://${rawStreamPath}#Intent;` +
+                `scheme=${scheme};` +
+                `action=android.intent.action.VIEW;` +
+                `package=dev.anilbeesetti.nextplayer;` +
+                `component=dev.anilbeesetti.nextplayer/.feature.player.PlayerActivity;` +
+                `S.title=${encodeURIComponent(mediaTitle)};` +
+                `S.browser_fallback_url=${encodeURIComponent(fallbackUrl)};` +
+                `end`;
+
+            document.getElementById('launch-btn').href = intentUri;
+
+        } else {
+            // Render Normal Landing View if 'url' or 'title' is missing
+            streamCard.style.display = 'none';
+            landingView.style.display = 'flex';
+            document.getElementById('page-title').textContent = "Next Player Linker";
+        }
+    </script>
+</body>
+</html>
